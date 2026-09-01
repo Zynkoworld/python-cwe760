@@ -7,7 +7,7 @@ decides, for a given piece of Python code and a line number, whether that line e
 (CWE-760).
 
 ## Proven
-Measured on a **discriminating** probe corpus of **24 cases (11 flagged + 13 safe)** — verified by
+Measured on a **discriminating** probe corpus of **25 cases (12 flagged + 13 safe)** — verified by
 running the oracle, not asserted. The corpus includes **held-out adversarial cases**
 (boundary values and near-misses) that were written after the decider, not alongside it:
 
@@ -15,7 +15,7 @@ running the oracle, not asserted. The corpus includes **held-out adversarial cas
 recall = 1.000    false_positives = 0    non-degenerate = yes  ->  PASS
 ```
 
-These numbers hold **on the published probe set (N=24)**. A probe set is a floor, not a
+These numbers hold **on the published probe set (N=25)**. A probe set is a floor, not a
 coverage measure — see *Known limitations* below.
 
 `verify.py` (stdlib only, no network) is the CI gate.
