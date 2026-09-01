@@ -3,7 +3,7 @@
 decide(code, line) -> "FLAG" | "SAFE".  FLAG iff the line contains a call that resolves, through the
 module's import bindings, to a recognized KDF (hashlib.pbkdf2_hmac / hashlib.scrypt / bcrypt.hashpw /
 bcrypt.kdf) AND its salt argument is a literal constant -- written inline, produced by a constant
-`.encode()`, concatenated from constants, or referenced through a module-level constant.
+`.encode()`, concatenated from constants, or referenced through a constant assigned elsewhere in the file.
 
 Anything non-literal (a name bound to a call, os.urandom, secrets.token_bytes, bcrypt.gensalt) yields
 SAFE: the decider never guesses about values it cannot see. A module's own `def pbkdf2_hmac(...)`
@@ -81,7 +81,12 @@ def _origin(call, binds, local):
 
 
 def _const_strs(tree):
-    """modul-szintu `NEV = "literal"` / `NEV = b"literal"` konstansok (konstans-propagacio)."""
+    """Egyszeru `NEV = <string/bytes literal>` ertekadasok BARHOL a fajlban.
+
+    FONTOS es szandekosan kimondva: ez NEM scope-erzekeny -- egy fuggvenyen BELULI ertekadas is
+    bekerul, es igy egy masik fuggvenyben szereplo AZONOS NEVU valtozora is ervenyesnek latszik.
+    Ez tudatos TUL-KOZELITES a rejtett literal fele; az arat a known_limitations.jsonl rogziti.
+    """
     out = {}
     for n in ast.walk(tree):
         if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant) \

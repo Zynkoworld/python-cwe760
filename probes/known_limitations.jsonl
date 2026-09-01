@@ -1,0 +1,3 @@
+{"_note": "NOT part of the verify.py gate. These are forms this decider cannot see; each is recorded with its current verdict so the gap is auditable rather than merely disclaimed.", "cwe": "CWE-760", "lang": "python"}
+{"code": "import functools, hashlib\nk = functools.partial(hashlib.pbkdf2_hmac)('sha256', pw, b'x', 1)\n", "line": 2, "current_verdict": "SAFE", "reason": "partial-be csomagolt KDF -- statikusan nem bomlik ki", "cwe": "CWE-760", "lang": "python"}
+{"code": "def a():\n    s = b'salt'\nimport hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, s, 100000)\n", "line": 4, "current_verdict": "FLAG", "reason": "TUL-KOZELITES: a konstans-tabla nem scope-erzekeny (ld. cwe259 ugyanezen sora)", "cwe": "CWE-760", "lang": "python"}
