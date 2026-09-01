@@ -1,43 +1,107 @@
-"""python-cwe760 -- predictable (literal) salt in a key-derivation call.
+"""python-cwe760 -- predictable (literal) salt in a key-derivation call, decided on the BINDING.
 
-decide(code, line) -> "FLAG" | "SAFE".  FLAG iff the given line contains a recognized KDF call whose
-salt argument is a LITERAL constant (bytes/str constant, a constant `.encode()`, or a concatenation of
-constants). Anything non-literal (a name, a call such as os.urandom / secrets.token_bytes /
-bcrypt.gensalt) yields SAFE -- the decider never guesses about values it cannot see.
-stdlib `ast` only; no code is executed. Clean-room rule, no third-party analyzer installed or run.
+decide(code, line) -> "FLAG" | "SAFE".  FLAG iff the line contains a call that resolves, through the
+module's import bindings, to a recognized KDF (hashlib.pbkdf2_hmac / hashlib.scrypt / bcrypt.hashpw /
+bcrypt.kdf) AND its salt argument is a literal constant -- written inline, produced by a constant
+`.encode()`, concatenated from constants, or referenced through a module-level constant.
+
+Anything non-literal (a name bound to a call, os.urandom, secrets.token_bytes, bcrypt.gensalt) yields
+SAFE: the decider never guesses about values it cannot see. A module's own `def pbkdf2_hmac(...)`
+shadows the library name and is NOT flagged. stdlib `ast` only; no code is executed.
 """
 import ast
 
 CWE = "CWE-760"
+_KDF = {"hashlib.pbkdf2_hmac": (2, "salt"), "hashlib.scrypt": (None, "salt"),
+        "bcrypt.hashpw": (1, None), "bcrypt.kdf": (None, "salt")}
+# --- import-kotes feloldas (zafire #19219: a dontes a KOTESRE alljon, ne a nevre) ---
 
-# hivas-nev -> (pozicionalis salt-index, kulcsszavas salt-nev)
-_KDF = {
-    "pbkdf2_hmac": (2, "salt"),
-    "scrypt": (None, "salt"),
-    "hashpw": (1, None),          # bcrypt.hashpw(pw, salt)
-    "kdf": (None, "salt"),        # bcrypt.kdf(password=..., salt=...)
-    "derive_key": (None, "salt"),
-}
-
-
-def _callee(node):
-    f = node.func
-    if isinstance(f, ast.Attribute):
-        return f.attr
-    if isinstance(f, ast.Name):
-        return f.id
+def _dotted(node):
+    """a.b.c -> "a.b.c"; barmi mas -> None"""
+    parts = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    if isinstance(node, ast.Name):
+        parts.append(node.id)
+        return ".".join(reversed(parts))
     return None
 
 
-def _is_literal(node):
-    """Literal konstans, konstans .encode(), vagy csak-konstansokbol allo osszefuzes."""
+def _resolve(dotted, binds):
+    head, _, rest = dotted.partition(".")
+    if head in binds:
+        return binds[head] + ("." + rest if rest else "")
+    return dotted
+
+
+def _bindings(tree):
+    """lokalis nev -> teljes (pontozott) eredet: importok + egyszeru referencia-atadas."""
+    binds = {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            for a in n.names:
+                binds[a.asname or a.name.split(".")[0]] = a.name if a.asname else a.name.split(".")[0]
+        elif isinstance(n, ast.ImportFrom):
+            mod = n.module or ""
+            for a in n.names:
+                binds[a.asname or a.name] = (mod + "." + a.name) if mod else a.name
+    for n in ast.walk(tree):          # f = hashlib.md5  ->  f kotese hashlib.md5
+        if isinstance(n, ast.Assign) and len(n.targets) == 1 and isinstance(n.targets[0], ast.Name):
+            d = _dotted(n.value)
+            if d:
+                binds[n.targets[0].id] = _resolve(d, binds)
+    return binds
+
+
+def _local_defs(tree):
+    """a modul altal MAGA definialt nevek -- ezek arnyekoljak az azonos nevu konyvtari hivast."""
+    out = set()
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            out.add(n.name)
+    return out
+
+
+def _origin(call, binds, local):
+    """A hivott dolog KOTES szerinti teljes neve. None = nem eldontheto. '<local>.' = sajat definicio."""
+    f = call.func
+    if isinstance(f, ast.Call) and isinstance(f.func, ast.Name) and f.func.id == "getattr" \
+            and len(f.args) == 2 and isinstance(f.args[1], ast.Constant) \
+            and isinstance(f.args[1].value, str):
+        base = _dotted(f.args[0])
+        return _resolve(base + "." + f.args[1].value, binds) if base else None
+    d = _dotted(f)
+    if d is None:
+        return None
+    head = d.split(".")[0]
+    if head in local and head not in binds:
+        return "<local>." + d
+    return _resolve(d, binds)
+
+
+def _const_strs(tree):
+    """modul-szintu `NEV = "literal"` / `NEV = b"literal"` konstansok (konstans-propagacio)."""
+    out = {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Assign) and isinstance(n.value, ast.Constant) \
+                and isinstance(n.value.value, (str, bytes)):
+            for t in n.targets:
+                if isinstance(t, ast.Name):
+                    out[t.id] = n.value.value
+    return out
+
+
+def _is_literal(node, consts):
     if isinstance(node, ast.Constant) and isinstance(node.value, (str, bytes)):
         return True
+    if isinstance(node, ast.Name) and node.id in consts:
+        return True
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
-            and node.func.attr in ("encode", "decode") and _is_literal(node.func.value):
+            and node.func.attr in ("encode", "decode") and _is_literal(node.func.value, consts):
         return True
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _is_literal(node.left) and _is_literal(node.right)
+        return _is_literal(node.left, consts) and _is_literal(node.right, consts)
     if isinstance(node, ast.JoinedStr):
         return all(isinstance(v, ast.Constant) for v in node.values)
     return False
@@ -48,13 +112,14 @@ def decide(code, line):
         tree = ast.parse(code)
     except SyntaxError:
         return "SAFE"
+    binds, local, consts = _bindings(tree), _local_defs(tree), _const_strs(tree)
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call) or getattr(node, "lineno", None) != line:
             continue
-        name = _callee(node)
-        if name not in _KDF:
+        origin = _origin(node, binds, local)
+        if not origin or origin not in _KDF:
             continue
-        pos, kw = _KDF[name]
+        pos, kw = _KDF[origin]
         salt = None
         if kw is not None:
             for k in node.keywords:
@@ -62,6 +127,6 @@ def decide(code, line):
                     salt = k.value
         if salt is None and pos is not None and len(node.args) > pos:
             salt = node.args[pos]
-        if salt is not None and _is_literal(salt):
+        if salt is not None and _is_literal(salt, consts):
             return "FLAG"
     return "SAFE"
