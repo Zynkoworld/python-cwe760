@@ -1,0 +1,19 @@
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, b'static-salt', 100000)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, salt=b'abc123', iterations=200000)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.scrypt(pw, salt=b'fixedsalt', n=16384, r=8, p=1)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import bcrypt\nh = bcrypt.hashpw(pw, b'$2b$12$abcdefghijklmnopqrstuv')\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, 'mysalt'.encode(), 100000)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, b'a' + b'b', 100000)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib, os\nk = hashlib.pbkdf2_hmac('sha256', pw, os.urandom(16), 100000)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib, secrets\nk = hashlib.pbkdf2_hmac('sha256', pw, salt=secrets.token_bytes(16), iterations=200000)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib, os\nk = hashlib.scrypt(pw, salt=os.urandom(16), n=16384, r=8, p=1)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import bcrypt\nh = bcrypt.hashpw(pw, bcrypt.gensalt())\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, user_salt, 100000)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nh = hashlib.sha256(data).hexdigest()\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, salt_from_db, 100000)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', b'literal-password', salt, 100000)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "import hashlib, os\nk = hashlib.pbkdf2_hmac(hash_name='sha256', password=pw, salt=os.urandom(16), iterations=1)\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "d = {'salt': b'abc'}\n", "line": 1, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "import hmac\nm = hmac.new(b'key', msg, 'sha256')\n", "line": 2, "expected_verdict": "SAFE", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "import hashlib\nk = hashlib.pbkdf2_hmac('sha256', pw, salt=f'zynko', iterations=200000)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
+{"code": "import hashlib\nk = hashlib.scrypt(password=pw, salt=b'', n=16384, r=8, p=1)\n", "line": 2, "expected_verdict": "FLAG", "cwe": "CWE-760", "lang": "python", "origin": "held-out adversarial (near-miss / boundary)"}
